@@ -1,0 +1,60 @@
+name: Docker Build Validation
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - 'docker-compose.yml'
+      - 'docker-compose.yaml'
+
+jobs:
+  docker-build-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build frontend Docker image
+      run: |
+        if [ -f "frontend/Dockerfile" ]; then
+          echo "Building frontend Docker image..."
+          docker build --no-cache -t frontend:test ./frontend
+          echo "✅ Frontend Docker build successful"
+        else
+          echo "⚠️ No Dockerfile found in frontend directory"
+          exit 1
+        fi
+        
+    - name: Build backend Docker image
+      run: |
+        if [ -f "backend/Dockerfile" ]; then
+          echo "Building backend Docker image..."
+          docker build --no-cache -t backend:test ./backend
+          echo "✅ Backend Docker build successful"
+        else
+          echo "⚠️ No Dockerfile found in backend directory"
+          exit 1
+        fi
+        
+    - name: Test Docker Compose
+      run: |
+        if [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ]; then
+          echo "Testing Docker Compose configuration..."
+          # Validate docker-compose syntax
+          docker-compose config
+          echo "✅ Docker Compose syntax is correct"
+        else
+          echo "ℹ️ No docker-compose file found, skipping compose test"
+        fi
+        
+    - name: Clean up Docker images
+      if: always()
+      run: |
+        docker system prune -f
+        docker image prune -f
