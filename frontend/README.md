@@ -41,3 +41,4 @@ To run this application, you will need a running backend that serves the require
 4.  **Review and Edit (Optional):** A modal window will appear displaying the generated prompt. You can review and edit this prompt to fine-tune the information sent to the AI. Click "Generate CV with this Prompt" to proceed.
 
 5.  **View and Download:** The generated CV will appear in the "Generated CV" text area. You can then click the "Download PDF" button to save a copy of your new CV.
+6.  
