@@ -47,7 +47,7 @@ jobs:
         if [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ]; then
           echo "Testing Docker Compose configuration..."
           # Validate docker-compose syntax
-          docker-compose config
+          docker compose config
           echo "✅ Docker Compose syntax is correct"
         else
           echo "ℹ️ No docker-compose file found, skipping compose test"

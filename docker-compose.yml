@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Backend API
   backend:
@@ -10,6 +8,7 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
+      - OLLAMA_API_URL=http://ollama:11434
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health')"]
@@ -17,6 +16,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    depends_on:
+      - ollama
     networks:
       - cv-network
 
@@ -31,8 +32,43 @@ services:
       - SCRAPER_API_URL=http://backend:8000/scrape
       - OLLAMA_API_URL=http://ollama:11434
     restart: unless-stopped
+    depends_on:
+      - backend
+      - ollama
     networks:
       - cv-network
+
+  # Ollama AI Service
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      # Persist ollama models and data
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - cv-network
+    # Uncomment the following lines if you have GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+volumes:
+  ollama_data:
+    driver: local
 
 networks:
   cv-network:
