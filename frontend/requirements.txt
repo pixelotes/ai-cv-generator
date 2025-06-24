@@ -1,0 +1,6 @@
+Flask
+requests
+WeasyPrint
+Markdown2
+python-dotenv
+gunicorn

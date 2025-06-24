@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered CV Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 24px; height: 24px; border-radius: 50%; border-left-color: #ffffff; animation: spin 1s ease infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #progress-log { white-space: pre-wrap; font-family: monospace; font-size: 0.875rem; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-6xl">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+            <div>
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">AI-Powered CV Generator</h1>
+                <p class="text-gray-600 dark:text-gray-400 mt-1">Create a professional CV from your online profiles.</p>
+            </div>
+            <div class="flex items-center space-x-4 mt-4 md:mt-0 text-sm">
+                <div class="flex items-center space-x-2"><span id="scraper-status-indicator" class="h-3 w-3 rounded-full bg-gray-400 animate-pulse"></span><span class="text-gray-700 dark:text-gray-300">Scraper API</span></div>
+                <div class="flex items-center space-x-2"><span id="ollama-status-indicator" class="h-3 w-3 rounded-full bg-gray-400 animate-pulse"></span><span class="text-gray-700 dark:text-gray-300">Ollama</span></div>
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Left Column: Inputs -->
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                <form id="cv-form">
+                    <!-- URLs with Depth & Remove button -->
+                    <div class="mb-6">
+                        <label class="block text-lg font-semibold mb-2 text-gray-800 dark:text-gray-100">Info Links</label>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Add links, select scrape depth, and remove if needed.</p>
+                        <div id="url-inputs-container">
+                            <!-- JS will populate this area -->
+                        </div>
+                        <button type="button" id="add-url-btn" class="mt-3 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 font-medium text-sm">+ Add another link</button>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label for="job-offer" class="block text-lg font-semibold mb-2 text-gray-800 dark:text-gray-100">Target Job Description</label>
+                        <textarea id="job-offer" rows="5" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700" placeholder="Paste the job description..."></textarea>
+                    </div>
+                    <div class="mb-6">
+                        <label for="additional-details" class="block text-lg font-semibold mb-2 text-gray-800 dark:text-gray-100">Additional Details</label>
+                        <textarea id="additional-details" rows="5" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700" placeholder="Add certifications, other projects..."></textarea>
+                    </div>
+                    <div class="mb-6">
+                        <label for="ollama-model-select" class="block text-lg font-semibold mb-2 text-gray-800 dark:text-gray-100">AI Model</label>
+                        <select id="ollama-model-select" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700" required><option value="" disabled selected>Checking models...</option></select>
+                    </div>
+                    
+                    <button type="submit" id="generate-btn" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/50 flex items-center justify-center disabled:bg-indigo-400 dark:disabled:bg-indigo-800 disabled:cursor-not-allowed">
+                        <span id="btn-text">Start Process</span>
+                        <div id="spinner" class="spinner ml-3 hidden"></div>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Right Column: Output & Logs -->
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100">Generated CV</h2>
+                    <button id="download-btn" class="hidden bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">Download PDF</button>
+                </div>
+                <div id="error-message" class="hidden bg-red-100 dark:bg-red-900/50 border border-red-400 text-red-700 dark:text-red-300 px-4 py-3 rounded-md mb-4" role="alert"></div>
+                <div id="progress-log" class="w-full p-3 mb-4 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 h-48 overflow-y-auto"></div>
+                <textarea id="cv-output" class="w-full flex-grow p-4 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 min-h-[300px]" placeholder="Your generated CV will appear here..."></textarea>
+            </div>
+        </main>
+    </div>
+
+    <!-- NEW: Prompt Editor Modal -->
+    <div id="prompt-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800">
+            <div class="mt-3">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Review and Edit AI Prompt</h3>
+                <div class="mt-2">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">This is the prompt that will be sent to the AI. You can edit it below to fine-tune the request.</p>
+                    <textarea id="prompt-editor" class="w-full h-96 p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 font-mono text-sm"></textarea>
+                </div>
+                <div class="items-center px-4 py-3 flex justify-end space-x-4">
+                    <button id="cancel-prompt-btn" class="px-4 py-2 bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">
+                        Cancel
+                    </button>
+                    <button id="confirm-prompt-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center disabled:bg-indigo-400 disabled:cursor-not-allowed">
+                        <span id="confirm-btn-text">Generate CV with this Prompt</span>
+                        <div id="confirm-spinner" class="spinner ml-3 hidden"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Element references
+            const addUrlBtn = document.getElementById('add-url-btn');
+            const urlInputsContainer = document.getElementById('url-inputs-container');
+            const cvForm = document.getElementById('cv-form');
+            const generateBtn = document.getElementById('generate-btn');
+            const btnText = document.getElementById('btn-text');
+            const spinner = document.getElementById('spinner');
+            const cvOutput = document.getElementById('cv-output');
+            const downloadBtn = document.getElementById('download-btn');
+            const errorMessageDiv = document.getElementById('error-message');
+            const progressLog = document.getElementById('progress-log');
+            const promptModal = document.getElementById('prompt-modal');
+            const promptEditor = document.getElementById('prompt-editor');
+            const cancelPromptBtn = document.getElementById('cancel-prompt-btn');
+            const confirmPromptBtn = document.getElementById('confirm-prompt-btn');
+            const confirmBtnText = document.getElementById('confirm-btn-text');
+            const confirmSpinner = document.getElementById('confirm-spinner');
+            // --- Utility Functions ---
+            const logProgress = (message) => { progressLog.innerHTML += message + '\n'; progressLog.scrollTop = progressLog.scrollHeight; };
+            const clearLogs = () => { progressLog.innerHTML = ''; errorMessageDiv.classList.add('hidden'); cvOutput.value = ''; downloadBtn.classList.add('hidden'); };
+            const showError = (message) => { errorMessageDiv.textContent = message; errorMessageDiv.classList.remove('hidden'); };
+            const setMainLoadingState = (isLoading, text = 'Start Process') => { generateBtn.disabled = isLoading; btnText.textContent = text; spinner.classList.toggle('hidden', !isLoading); };
+            const setConfirmLoadingState = (isLoading, text = 'Generate CV with this Prompt') => { confirmPromptBtn.disabled = isLoading; confirmBtnText.textContent = text; confirmSpinner.classList.toggle('hidden', !isLoading); };
+            
+            // --- Health check (unchanged) ---
+            (async function healthCheck() {
+                const scraperStatusIndicator = document.getElementById('scraper-status-indicator');
+                const ollamaStatusIndicator = document.getElementById('ollama-status-indicator');
+                const ollamaModelSelect = document.getElementById('ollama-model-select');
+                 try {
+                    const response = await fetch('/health_checks');
+                    const data = await response.json();
+                    scraperStatusIndicator.className = `h-3 w-3 rounded-full ${data.scraper ? 'bg-green-500' : 'bg-red-500'}`;
+                    ollamaStatusIndicator.className = `h-3 w-3 rounded-full ${data.ollama ? 'bg-green-500' : 'bg-red-500'}`;
+                    if (data.ollama && data.ollama_models.length > 0) {
+                        const currentSelection = ollamaModelSelect.value;
+                        ollamaModelSelect.innerHTML = '<option value="" disabled>Select a model</option>';
+                        data.ollama_models.forEach(model => {
+                            ollamaModelSelect.innerHTML += `<option value="${model}">${model}</option>`;
+                        });
+                        if (data.ollama_models.includes(currentSelection)) ollamaModelSelect.value = currentSelection; else ollamaModelSelect.value = "";
+                    } else if (data.ollama) {
+                         ollamaModelSelect.innerHTML = '<option value="" disabled>No models found</option>';
+                    } else {
+                         ollamaModelSelect.innerHTML = '<option value="" disabled>Ollama unreachable</option>';
+                    }
+                } catch (error) {
+                    scraperStatusIndicator.className = 'h-3 w-3 rounded-full bg-red-500';
+                    ollamaStatusIndicator.className = 'h-3 w-3 rounded-full bg-red-500';
+                    ollamaModelSelect.innerHTML = '<option value="" disabled>App server error</option>';
+                }
+                setTimeout(healthCheck, 30000);
+            })();
+
+            // --- URL Input Management ---
+            const addNewUrlInput = () => {
+                const newGroup = document.createElement('div');
+                newGroup.className = 'flex items-center space-x-2 url-group mt-2';
+                newGroup.innerHTML = `
+                    <input type="url" name="url" class="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="https://github.com/your-username" required>
+                    <select name="depth" class="p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <option value="1">Depth 1</option>
+                        <option value="2" selected>Depth 2</option>
+                        <option value="3">Depth 3</option>
+                        <option value="4">Depth 4</option>
+                        <option value="5">Depth 5</option>
+                    </select>
+                    <button type="button" class="remove-url-btn bg-red-500 hover:bg-red-600 text-white font-bold p-2 rounded-md transition-colors">-</button>
+                `;
+                urlInputsContainer.appendChild(newGroup);
+            };
+
+            addUrlBtn.addEventListener('click', addNewUrlInput);
+            urlInputsContainer.addEventListener('click', (e) => {
+                if (e.target && e.target.classList.contains('remove-url-btn')) {
+                    e.target.closest('.url-group').remove();
+                }
+            });
+            addNewUrlInput(); // Start with one input field
+
+            // --- Main Form Submission Logic ---
+            cvForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                clearLogs();
+
+                const urlsWithDepth = [];
+                document.querySelectorAll('.url-group').forEach(group => {
+                    const urlInput = group.querySelector('input[name="url"]');
+                    const depthInput = group.querySelector('select[name="depth"]');
+                    if (urlInput && depthInput && urlInput.value.trim() !== '') {
+                        urlsWithDepth.push({ url: urlInput.value.trim(), depth: parseInt(depthInput.value, 10) });
+                    }
+                });
+                
+                if (urlsWithDepth.length === 0) {
+                    showError("Please provide at least one URL.");
+                    return;
+                }
+                
+                setMainLoadingState(true, 'Scraping...');
+                logProgress('STEP 1: Starting web scraping...');
+
+                try {
+                    // --- STAGE 1: SCRAPING ---
+                    const scrapeResponse = await fetch('/scrape_urls', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ urls_with_depth: urlsWithDepth })
+                    });
+                    const scrapeResult = await scrapeResponse.json();
+                    if (!scrapeResponse.ok) throw new Error(scrapeResult.error || 'Scraping failed.');
+
+                    let successfulScrapes = [];
+                    scrapeResult.results.forEach(res => {
+                        logProgress(res.success ? `✅ Success: ${res.url}` : `❌ Failed: ${res.url} (Error: ${res.error})`);
+                        if(res.success) successfulScrapes.push(res);
+                    });
+                    if (successfulScrapes.length === 0) throw new Error("All scraping attempts failed.");
+                    
+                    // --- STAGE 2: PROMPT GENERATION ---
+                    logProgress('\nSTEP 2: Generating AI prompt...');
+                    const promptGenPayload = {
+                        scrapedResults: successfulScrapes,
+                        jobOffer: document.getElementById('job-offer').value,
+                        additionalDetails: document.getElementById('additional-details').value,
+                    };
+                    const promptResponse = await fetch('/generate_prompt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(promptGenPayload)
+                    });
+                    const promptResult = await promptResponse.json();
+                    if (!promptResponse.ok) throw new Error(promptResult.error || 'Failed to generate prompt.');
+                    
+                    promptEditor.value = promptResult.prompt;
+                    promptModal.classList.remove('hidden');
+                    logProgress('Prompt generated. Please review and edit if needed.');
+
+                } catch (error) {
+                    showError(error.message);
+                    logProgress(`\n⛔️ ERROR: ${error.message}`);
+                } finally {
+                    setMainLoadingState(false);
+                }
+            });
+            
+            // --- Prompt Modal Logic ---
+            cancelPromptBtn.addEventListener('click', () => {
+                promptModal.classList.add('hidden');
+                logProgress('CV generation cancelled.');
+            });
+
+            confirmPromptBtn.addEventListener('click', async () => {
+                setConfirmLoadingState(true, 'Generating...');
+                logProgress('\nSTEP 3: Sending final prompt to AI. Please wait...');
+
+                try {
+                    const finalCvPayload = {
+                        prompt: promptEditor.value,
+                        model: document.getElementById('ollama-model-select').value
+                    };
+                    const cvResponse = await fetch('/create_final_cv', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(finalCvPayload)
+                    });
+                    const cvResult = await cvResponse.json();
+                    if (!cvResponse.ok) throw new Error(cvResult.error || 'CV generation failed.');
+                    
+                    logProgress('✅ AI generation complete!');
+                    cvOutput.value = cvResult.cv;
+                    downloadBtn.classList.remove('hidden');
+                } catch (error) {
+                    showError(error.message);
+                    logProgress(`\n⛔️ ERROR: ${error.message}`);
+                } finally {
+                    setConfirmLoadingState(false);
+                    promptModal.classList.add('hidden');
+                }
+            });
+
+            // --- Download PDF (unchanged) ---
+            document.getElementById('download-btn').addEventListener('click', async () => {
+                const cvMarkdown = cvOutput.value;
+                if (!cvMarkdown) { showError("CV content is empty."); return; }
+                const btn = document.getElementById('download-btn');
+                btn.disabled = true;
+                btn.textContent = 'Preparing...';
+                try {
+                    const response = await fetch('/download_pdf', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ cv_markdown: cvMarkdown })
+                    });
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.error || 'PDF generation failed.');
+                    }
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'Generated_CV.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                } catch (error) {
+                    showError(`Could not download PDF: ${error.message}`);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Download PDF';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
